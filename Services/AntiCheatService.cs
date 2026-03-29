@@ -118,7 +118,17 @@ namespace Emqo.Unturned_AntiCheat.Services
 
         public void RegisterDisconnected(UnturnedPlayer player)
         {
-            _sessions.TryRemove(GetSteamId(player), out _);
+            if (player == null)
+            {
+                return;
+            }
+
+            RegisterDisconnected(GetSteamId(player));
+        }
+
+        public void RegisterDisconnected(ulong steamId)
+        {
+            _sessions.TryRemove(steamId, out _);
         }
 
         public void RegisterPosition(UnturnedPlayer player, Vector3 position)
@@ -345,13 +355,9 @@ namespace Emqo.Unturned_AntiCheat.Services
         private PenaltyDecision EvaluatePenalty(PlayerProfile profile)
         {
             var nowUtc = DateTime.UtcNow;
-            if (profile.LastPenaltyUtc.HasValue &&
-                nowUtc - profile.LastPenaltyUtc.Value < TimeSpan.FromMinutes(_configuration.Penalties.PenaltyCooldownMinutes))
-            {
-                return new PenaltyDecision { Action = PenaltyAction.None, CurrentScore = profile.Score };
-            }
-
-            if (_configuration.Penalties.AutoBan && profile.Score >= _configuration.Penalties.BanScore)
+            if (_configuration.Penalties.AutoBan &&
+                profile.Score >= _configuration.Penalties.BanScore &&
+                IsPenaltyOffCooldown(profile.LastBanUtc, nowUtc, _configuration.Penalties.BanCooldownMinutes.GetValueOrDefault()))
             {
                 return new PenaltyDecision
                 {
@@ -361,7 +367,9 @@ namespace Emqo.Unturned_AntiCheat.Services
                 };
             }
 
-            if (_configuration.Penalties.AutoKick && profile.Score >= _configuration.Penalties.KickScore)
+            if (_configuration.Penalties.AutoKick &&
+                profile.Score >= _configuration.Penalties.KickScore &&
+                IsPenaltyOffCooldown(profile.LastKickUtc, nowUtc, _configuration.Penalties.KickCooldownMinutes.GetValueOrDefault()))
             {
                 return new PenaltyDecision
                 {
@@ -371,7 +379,8 @@ namespace Emqo.Unturned_AntiCheat.Services
                 };
             }
 
-            if (profile.Score >= _configuration.Penalties.AlertScore)
+            if (profile.Score >= _configuration.Penalties.AlertScore &&
+                IsPenaltyOffCooldown(profile.LastAlertUtc, nowUtc, _configuration.Penalties.AlertCooldownMinutes.GetValueOrDefault()))
             {
                 return new PenaltyDecision
                 {
@@ -392,19 +401,20 @@ namespace Emqo.Unturned_AntiCheat.Services
             }
 
             var profile = GetOrCreateProfile(player);
-            profile.LastPenaltyUtc = DateTime.UtcNow;
-
             switch (decision.Action)
             {
                 case PenaltyAction.Alert:
+                    profile.LastAlertUtc = DateTime.UtcNow;
                     Rocket.Core.Logging.Logger.LogWarning($"[AC] Alert on {player.CharacterName}: {decision.Reason}");
                     break;
                 case PenaltyAction.Kick:
+                    profile.LastKickUtc = DateTime.UtcNow;
                     profile.KickCount++;
                     Rocket.Core.Logging.Logger.LogWarning($"[AC] Kicking {player.CharacterName}: {decision.Reason}");
                     player.Kick(decision.Reason);
                     break;
                 case PenaltyAction.Ban:
+                    profile.LastBanUtc = DateTime.UtcNow;
                     profile.BanCount++;
                     Rocket.Core.Logging.Logger.LogWarning($"[AC] Ban requested for {player.CharacterName}: {decision.Reason}");
                     if (!TryBan(player, decision.Reason))
@@ -450,6 +460,16 @@ namespace Emqo.Unturned_AntiCheat.Services
                 Rocket.Core.Logging.Logger.LogError($"[AC] Player.Ban fallback failed for {player.CharacterName}: {ex}");
                 return false;
             }
+        }
+
+        private static bool IsPenaltyOffCooldown(DateTime? lastPenaltyUtc, DateTime nowUtc, int cooldownMinutes)
+        {
+            if (!lastPenaltyUtc.HasValue || cooldownMinutes <= 0)
+            {
+                return true;
+            }
+
+            return nowUtc - lastPenaltyUtc.Value >= TimeSpan.FromMinutes(cooldownMinutes);
         }
 
         private PlayerSession GetOrCreateSession(UnturnedPlayer player)

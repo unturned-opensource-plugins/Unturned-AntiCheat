@@ -8,6 +8,7 @@ Chinese version: [README.zh-CN.md](README.zh-CN.md)
 
 - Tracks player movement and raises evidence for speed, vertical spikes, and teleport-like jumps.
 - Tracks gun damage telemetry for burst damage windows, suspicious headshot-hit ratios, and kill cadence spikes.
+- Records combat telemetry only after the hit is actually allowed, avoiding safezone/friendly-fire/godmode false positives.
 - Layers combat thresholds by inferred gun profile and engagement distance so shotguns, autos, and snipers are scored differently.
 - Supports per-weapon GUID overrides for custom workshop guns and modded balance packs.
 - Tracks chat spam as a lightweight abuse signal.
@@ -35,9 +36,24 @@ Chinese version: [README.zh-CN.md](README.zh-CN.md)
 - Automatic ban is disabled by default; automatic kick is enabled once score crosses the configured threshold.
 - `ban` now calls `Provider.requestBanPlayer(...)` and includes the player's IPv4/HWID telemetry when available.
 - `Penalties.BanDurationSeconds = 0` means permanent ban; set a positive number for temporary bans.
+- Penalty throttling now reads only `Penalties.AlertCooldownMinutes`, `Penalties.KickCooldownMinutes`, and `Penalties.BanCooldownMinutes`. Older configs must be updated to these three explicit fields.
 - `/ac reload` reloads the XML config in-place and updates active detector thresholds without resetting evidence or player sessions.
 - Runtime reload only refreshes settings. If you change `StorageFileName`, do a full plugin reload to switch repository path.
-- Combat evidence now includes `weapon_guid`, so you can copy a suspicious weapon's GUID directly into `Combat.WeaponOverrides`.
+- Combat evidence now includes `weapon_guid` and `damage_allowed_source=post_event`, so you can copy a suspicious weapon's GUID directly into `Combat.WeaponOverrides` and confirm the hit was scored post-approval.
+- Player sessions are cleared on disconnect so reconnects do not inherit stale movement, chat, or combat windows.
+- On load and `/ac reload`, the plugin now writes normalized penalty cooldown fields back to the XML so older configs are materialized into the explicit three-field form.
+
+Penalty cooldown example:
+
+```xml
+<Penalties>
+  <AlertCooldownMinutes>2</AlertCooldownMinutes>
+  <KickCooldownMinutes>10</KickCooldownMinutes>
+  <BanCooldownMinutes>10</BanCooldownMinutes>
+</Penalties>
+```
+
+Set any of the three cooldowns to `0` to disable that specific throttle entirely.
 
 ## Combat Tuning
 

@@ -4,6 +4,7 @@ using Rocket.Core.Plugins;
 using Rocket.Unturned.Events;
 using Rocket.Unturned.Player;
 using SDG.Unturned;
+using System.Linq;
 using Steamworks;
 using UnityEngine;
 
@@ -18,26 +19,37 @@ namespace Emqo.Unturned_AntiCheat
         {
             Instance = this;
             Configuration.Instance.ApplyDefaultsIfNeeded();
+            Configuration.Save();
 
             var storagePath = Path.Combine(Directory, Configuration.Instance.General.StorageFileName);
             AntiCheatService = new AntiCheatService(
                 new JsonAntiCheatRepository(storagePath),
                 Configuration.Instance);
 
-            DamageTool.damagePlayerRequested += OnDamagePlayerRequested;
+            Provider.onServerConnected += OnServerConnected;
+            Provider.onServerDisconnected += OnServerDisconnected;
             UnturnedPlayerEvents.OnPlayerDeath += OnPlayerDeath;
             UnturnedPlayerEvents.OnPlayerUpdatePosition += OnPlayerUpdatePosition;
             UnturnedPlayerEvents.OnPlayerChatted += OnPlayerChatted;
+            UnturnedEvents.OnPlayerDamaged += OnPlayerDamaged;
+
+            foreach (var steamPlayer in Provider.clients.ToArray())
+            {
+                var player = UnturnedPlayer.FromSteamPlayer(steamPlayer);
+                AntiCheatService?.RegisterConnected(player);
+            }
 
             Rocket.Core.Logging.Logger.Log($"{Name} {Assembly.GetName().Version.ToString(3)} has been loaded!");
         }
 
         protected override void Unload()
         {
-            DamageTool.damagePlayerRequested -= OnDamagePlayerRequested;
+            Provider.onServerConnected -= OnServerConnected;
+            Provider.onServerDisconnected -= OnServerDisconnected;
             UnturnedPlayerEvents.OnPlayerDeath -= OnPlayerDeath;
             UnturnedPlayerEvents.OnPlayerUpdatePosition -= OnPlayerUpdatePosition;
             UnturnedPlayerEvents.OnPlayerChatted -= OnPlayerChatted;
+            UnturnedEvents.OnPlayerDamaged -= OnPlayerDamaged;
 
             AntiCheatService?.Save();
             AntiCheatService = null;
@@ -50,6 +62,7 @@ namespace Emqo.Unturned_AntiCheat
         {
             Configuration.Load();
             Configuration.Instance.ApplyDefaultsIfNeeded();
+            Configuration.Save();
             AntiCheatService?.ReloadConfiguration(Configuration.Instance);
             Rocket.Core.Logging.Logger.Log($"[AC] {Name} runtime configuration reloaded.");
         }
@@ -64,15 +77,49 @@ namespace Emqo.Unturned_AntiCheat
             AntiCheatService?.RegisterPosition(player, position);
         }
 
-        private void OnDamagePlayerRequested(ref DamagePlayerParameters parameters, ref bool shouldAllow)
+        private void OnServerConnected(CSteamID steamId)
         {
+            if (steamId == CSteamID.Nil)
+            {
+                return;
+            }
+
+            var player = UnturnedPlayer.FromCSteamID(steamId);
+            AntiCheatService?.RegisterConnected(player);
+        }
+
+        private void OnServerDisconnected(CSteamID steamId)
+        {
+            if (steamId == CSteamID.Nil)
+            {
+                return;
+            }
+
+            AntiCheatService?.RegisterDisconnected(steamId.m_SteamID);
+        }
+
+        private void OnPlayerDamaged(
+            UnturnedPlayer player,
+            ref EDeathCause cause,
+            ref ELimb limb,
+            ref UnturnedPlayer killer,
+            ref Vector3 direction,
+            ref float damage,
+            ref float times,
+            ref bool canDamage)
+        {
+            if (!canDamage || killer == null)
+            {
+                return;
+            }
+
             AntiCheatService?.RegisterDamage(
-                parameters.player,
-                parameters.killer,
-                parameters.cause,
-                parameters.limb,
-                parameters.damage,
-                parameters.times);
+                player.Player,
+                killer.CSteamID,
+                cause,
+                limb,
+                damage,
+                times);
         }
 
         private void OnPlayerChatted(UnturnedPlayer player, ref Color color, string message, EChatMode chatMode, ref bool cancel)

@@ -29,7 +29,9 @@ namespace Emqo.Unturned_AntiCheat
                 BanScore = 85d,
                 BanDurationSeconds = 0u,
                 ScoreDecayPerMinute = 1.5d,
-                PenaltyCooldownMinutes = 10,
+                AlertCooldownMinutes = 2,
+                KickCooldownMinutes = 10,
+                BanCooldownMinutes = 10,
                 AutoBan = false,
                 AutoKick = true
             };
@@ -117,9 +119,31 @@ namespace Emqo.Unturned_AntiCheat
                 Penalties.ScoreDecayPerMinute = defaults.Penalties.ScoreDecayPerMinute;
             }
 
-            if (Penalties.PenaltyCooldownMinutes <= 0)
+            if (!Penalties.KickCooldownMinutes.HasValue)
             {
-                Penalties.PenaltyCooldownMinutes = defaults.Penalties.PenaltyCooldownMinutes;
+                Penalties.KickCooldownMinutes = defaults.Penalties.KickCooldownMinutes;
+            }
+            else if (Penalties.KickCooldownMinutes.Value < 0)
+            {
+                Penalties.KickCooldownMinutes = defaults.Penalties.KickCooldownMinutes;
+            }
+
+            if (!Penalties.AlertCooldownMinutes.HasValue)
+            {
+                Penalties.AlertCooldownMinutes = defaults.Penalties.AlertCooldownMinutes;
+            }
+            else if (Penalties.AlertCooldownMinutes.Value < 0)
+            {
+                Penalties.AlertCooldownMinutes = defaults.Penalties.AlertCooldownMinutes;
+            }
+
+            if (!Penalties.BanCooldownMinutes.HasValue)
+            {
+                Penalties.BanCooldownMinutes = defaults.Penalties.BanCooldownMinutes;
+            }
+            else if (Penalties.BanCooldownMinutes.Value < 0)
+            {
+                Penalties.BanCooldownMinutes = defaults.Penalties.BanCooldownMinutes;
             }
 
             if (Movement.MinimumSampleMilliseconds <= 0)
@@ -378,7 +402,9 @@ namespace Emqo.Unturned_AntiCheat
         public double BanScore { get; set; }
         public uint BanDurationSeconds { get; set; }
         public double ScoreDecayPerMinute { get; set; }
-        public int PenaltyCooldownMinutes { get; set; }
+        public int? AlertCooldownMinutes { get; set; }
+        public int? KickCooldownMinutes { get; set; }
+        public int? BanCooldownMinutes { get; set; }
         public bool AutoKick { get; set; }
         public bool AutoBan { get; set; }
     }
