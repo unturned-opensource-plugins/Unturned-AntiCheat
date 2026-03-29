@@ -1,0 +1,9 @@
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.configuration.xml
+anticheat-data.json
+DESIGN.md
