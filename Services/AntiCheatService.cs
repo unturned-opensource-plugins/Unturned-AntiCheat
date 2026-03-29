@@ -15,6 +15,7 @@ namespace Emqo.Unturned_AntiCheat.Services
         private readonly IAntiCheatRepository _repository;
         private Unturned_AntiCheatConfiguration _configuration;
         private readonly MovementDetector _movementDetector;
+        private readonly VehicleDetector _vehicleDetector;
         private readonly CombatDetector _combatDetector;
         private readonly AbuseDetector _abuseDetector;
         private readonly ConcurrentDictionary<ulong, PlayerSession> _sessions = new ConcurrentDictionary<ulong, PlayerSession>();
@@ -25,6 +26,7 @@ namespace Emqo.Unturned_AntiCheat.Services
             _repository = repository;
             _configuration = configuration;
             _movementDetector = new MovementDetector(configuration.Movement);
+            _vehicleDetector = new VehicleDetector(configuration.Vehicle);
             _combatDetector = new CombatDetector(configuration.Combat);
             _abuseDetector = new AbuseDetector(configuration.Abuse);
             _dataStore = repository.Load();
@@ -44,6 +46,7 @@ namespace Emqo.Unturned_AntiCheat.Services
             {
                 _configuration = configuration;
                 _movementDetector.UpdateSettings(configuration.Movement);
+                _vehicleDetector.UpdateSettings(configuration.Vehicle);
                 _combatDetector.UpdateSettings(configuration.Combat);
                 _abuseDetector.UpdateSettings(configuration.Abuse);
 
@@ -104,7 +107,7 @@ namespace Emqo.Unturned_AntiCheat.Services
             var session = _sessions.GetOrAdd(GetSteamId(player), _ => new PlayerSession());
             session.SteamId = GetSteamId(player);
             session.PlayerName = player.CharacterName;
-            session.LastPosition = player.Position;
+            session.LastPosition = ToPosition3(player.Position);
             session.LastPositionUtc = DateTime.UtcNow;
 
             lock (_dataLock)
@@ -140,7 +143,30 @@ namespace Emqo.Unturned_AntiCheat.Services
 
             var session = GetOrCreateSession(player);
             session.PlayerName = player.CharacterName;
-            foreach (var violation in _movementDetector.Analyze(session, position, DateTime.UtcNow, player.IsInVehicle))
+            var nowUtc = DateTime.UtcNow;
+            var currentPosition = ToPosition3(position);
+
+            if (player.IsInVehicle)
+            {
+                _movementDetector.ResetTracking(session, currentPosition, nowUtc);
+
+                if (TryCreateVehicleSampleContext(player, out var vehicleContext))
+                {
+                    foreach (var violation in _vehicleDetector.Analyze(session, currentPosition, nowUtc, vehicleContext))
+                    {
+                        ApplyViolation(player, violation);
+                    }
+                }
+                else
+                {
+                    _vehicleDetector.ResetTracking(session, currentPosition, nowUtc, null);
+                }
+
+                return;
+            }
+
+            _vehicleDetector.ResetTracking(session, currentPosition, nowUtc, null);
+            foreach (var violation in _movementDetector.Analyze(session, currentPosition, nowUtc))
             {
                 ApplyViolation(player, violation);
             }
@@ -550,6 +576,11 @@ namespace Emqo.Unturned_AntiCheat.Services
             return player.CSteamID.m_SteamID;
         }
 
+        private static Position3 ToPosition3(Vector3 position)
+        {
+            return new Position3(position.x, position.y, position.z);
+        }
+
         private static CombatWeaponType ClassifyWeaponType(ItemGunAsset weaponAsset)
         {
             if (weaponAsset == null)
@@ -598,6 +629,86 @@ namespace Emqo.Unturned_AntiCheat.Services
             }
 
             return weaponAsset.GUID.ToString("D");
+        }
+
+        private static bool TryCreateVehicleSampleContext(UnturnedPlayer player, out VehicleSampleContext context)
+        {
+            context = null;
+            var vehicle = player?.CurrentVehicle;
+            if (vehicle == null)
+            {
+                return false;
+            }
+
+            var driver = vehicle.GetClientBySeatIndex(0);
+            if (driver == null || driver.playerID.steamID != player.CSteamID)
+            {
+                return false;
+            }
+
+            var vehicleAsset = vehicle.asset as VehicleAsset;
+            if (vehicleAsset == null || vehicleAsset.GUID == Guid.Empty)
+            {
+                return false;
+            }
+
+            context = new VehicleSampleContext
+            {
+                VehicleInstanceId = vehicle.GetInstanceID(),
+                VehicleGuid = vehicleAsset.GUID.ToString("D"),
+                VehicleLabel = string.IsNullOrWhiteSpace(vehicleAsset.name) ? vehicleAsset.GUID.ToString("D") : vehicleAsset.name,
+                TargetForwardSpeedMetersPerSecond = Math.Max(0d, vehicleAsset.TargetForwardSpeed),
+                TargetReverseSpeedMetersPerSecond = Math.Max(0d, vehicleAsset.TargetReverseSpeed),
+                IsDriver = true,
+                VehicleClass = ClassifyVehicle(vehicleAsset)
+            };
+
+            return true;
+        }
+
+        private static VehicleDetectionClass ClassifyVehicle(VehicleAsset vehicleAsset)
+        {
+            if (vehicleAsset == null)
+            {
+                return VehicleDetectionClass.Ground;
+            }
+
+            if (vehicleAsset.hasBicycle)
+            {
+                return VehicleDetectionClass.Bicycle;
+            }
+
+            if (vehicleAsset.CrawlerTrackSteeringTorque > 0d)
+            {
+                return VehicleDetectionClass.Tracked;
+            }
+
+            if (vehicleAsset.ShouldIncludeAirbornWheelsInAverageRpm)
+            {
+                return IsLikelyHelicopter(vehicleAsset)
+                    ? VehicleDetectionClass.Helicopter
+                    : VehicleDetectionClass.Plane;
+            }
+
+            if (vehicleAsset.ForwardGearsCount <= 1 &&
+                vehicleAsset.engineForceMultiplier > 0d)
+            {
+                return VehicleDetectionClass.Boat;
+            }
+
+            return VehicleDetectionClass.Ground;
+        }
+
+        private static bool IsLikelyHelicopter(VehicleAsset vehicleAsset)
+        {
+            if (vehicleAsset == null)
+            {
+                return false;
+            }
+
+            var forwardSpeed = Math.Max(1d, vehicleAsset.TargetForwardSpeed);
+            var reverseSpeed = Math.Max(0d, vehicleAsset.TargetReverseSpeed);
+            return reverseSpeed >= 6d || reverseSpeed / forwardSpeed >= 0.2d;
         }
     }
 }

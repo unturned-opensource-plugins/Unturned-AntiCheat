@@ -9,6 +9,7 @@ namespace Emqo.Unturned_AntiCheat
         public GeneralSettings General { get; set; }
         public PenaltySettings Penalties { get; set; }
         public MovementDetectionSettings Movement { get; set; }
+        public VehicleDetectionSettings Vehicle { get; set; }
         public CombatDetectionSettings Combat { get; set; }
         public AbuseDetectionSettings Abuse { get; set; }
 
@@ -35,20 +36,8 @@ namespace Emqo.Unturned_AntiCheat
                 AutoBan = false,
                 AutoKick = true
             };
-            Movement = new MovementDetectionSettings
-            {
-                Enabled = true,
-                MinimumSampleMilliseconds = 250,
-                MaxHorizontalSpeedMetersPerSecond = 14d,
-                SustainedHorizontalSpeedMetersPerSecond = 11d,
-                MaxVerticalDeltaMeters = 6d,
-                MaxTeleportDistanceMeters = 35d,
-                SustainedWindowSeconds = 4d,
-                CooldownSeconds = 8d,
-                SpeedViolationScore = 12d,
-                VerticalViolationScore = 16d,
-                TeleportViolationScore = 28d
-            };
+            Movement = MovementDetectionDefaults.CreateSettings();
+            Vehicle = VehicleDetectionDefaults.CreateSettings();
             Combat = new CombatDetectionSettings
             {
                 Enabled = true,
@@ -89,6 +78,7 @@ namespace Emqo.Unturned_AntiCheat
             General ??= defaults.General;
             Penalties ??= defaults.Penalties;
             Movement ??= defaults.Movement;
+            Vehicle ??= defaults.Vehicle;
             Combat ??= defaults.Combat;
             Abuse ??= defaults.Abuse;
 
@@ -194,6 +184,225 @@ namespace Emqo.Unturned_AntiCheat
             if (Movement.TeleportViolationScore <= 0d)
             {
                 Movement.TeleportViolationScore = defaults.Movement.TeleportViolationScore;
+            }
+
+            if (Vehicle.MinimumSampleMilliseconds <= 0)
+            {
+                Vehicle.MinimumSampleMilliseconds = defaults.Vehicle.MinimumSampleMilliseconds;
+            }
+
+            if (Vehicle.MinimumReferenceSpeedMetersPerSecond <= 0d)
+            {
+                Vehicle.MinimumReferenceSpeedMetersPerSecond = defaults.Vehicle.MinimumReferenceSpeedMetersPerSecond;
+            }
+
+            if (Vehicle.InstantaneousSpeedMultiplier <= 0d)
+            {
+                Vehicle.InstantaneousSpeedMultiplier = defaults.Vehicle.InstantaneousSpeedMultiplier;
+            }
+
+            if (Vehicle.SustainedSpeedMultiplier <= 0d)
+            {
+                Vehicle.SustainedSpeedMultiplier = defaults.Vehicle.SustainedSpeedMultiplier;
+            }
+
+            if (Vehicle.TeleportDistanceMultiplier <= 0d)
+            {
+                Vehicle.TeleportDistanceMultiplier = defaults.Vehicle.TeleportDistanceMultiplier;
+            }
+
+            if (Vehicle.FlatSpeedGraceMetersPerSecond < 0d)
+            {
+                Vehicle.FlatSpeedGraceMetersPerSecond = defaults.Vehicle.FlatSpeedGraceMetersPerSecond;
+            }
+
+            if (Vehicle.FlatTeleportGraceMeters < 0d)
+            {
+                Vehicle.FlatTeleportGraceMeters = defaults.Vehicle.FlatTeleportGraceMeters;
+            }
+
+            if (Vehicle.AbsoluteTeleportDistanceMeters <= 0d)
+            {
+                Vehicle.AbsoluteTeleportDistanceMeters = defaults.Vehicle.AbsoluteTeleportDistanceMeters;
+            }
+
+            if (Vehicle.MaximumAccelerationMetersPerSecondSquared <= 0d)
+            {
+                Vehicle.MaximumAccelerationMetersPerSecondSquared = defaults.Vehicle.MaximumAccelerationMetersPerSecondSquared;
+            }
+
+            if (Vehicle.SustainedWindowSeconds <= 0d)
+            {
+                Vehicle.SustainedWindowSeconds = defaults.Vehicle.SustainedWindowSeconds;
+            }
+
+            if (Vehicle.CooldownSeconds <= 0d)
+            {
+                Vehicle.CooldownSeconds = defaults.Vehicle.CooldownSeconds;
+            }
+
+            if (Vehicle.SpeedViolationScore <= 0d)
+            {
+                Vehicle.SpeedViolationScore = defaults.Vehicle.SpeedViolationScore;
+            }
+
+            if (Vehicle.SustainedSpeedViolationScore <= 0d)
+            {
+                Vehicle.SustainedSpeedViolationScore = defaults.Vehicle.SustainedSpeedViolationScore;
+            }
+
+            if (Vehicle.TeleportViolationScore <= 0d)
+            {
+                Vehicle.TeleportViolationScore = defaults.Vehicle.TeleportViolationScore;
+            }
+
+            if (Vehicle.AccelerationViolationScore <= 0d)
+            {
+                Vehicle.AccelerationViolationScore = defaults.Vehicle.AccelerationViolationScore;
+            }
+
+            Vehicle.VehicleClassProfiles ??= VehicleDetectionDefaults.CreateClassProfiles();
+            Vehicle.VehicleOverrides ??= new List<VehicleOverrideSettings>();
+
+            foreach (var classProfile in Vehicle.VehicleClassProfiles.Where(x => x != null))
+            {
+                if (classProfile.ReferenceSpeedMultiplier <= 0d)
+                {
+                    classProfile.ReferenceSpeedMultiplier = 1d;
+                }
+
+                if (classProfile.InstantaneousSpeedMultiplier <= 0d)
+                {
+                    classProfile.InstantaneousSpeedMultiplier = 1d;
+                }
+
+                if (classProfile.SustainedSpeedMultiplier <= 0d)
+                {
+                    classProfile.SustainedSpeedMultiplier = 1d;
+                }
+
+                if (classProfile.TeleportDistanceMultiplier <= 0d)
+                {
+                    classProfile.TeleportDistanceMultiplier = 1d;
+                }
+
+                if (classProfile.FlatSpeedGraceMultiplier < 0d)
+                {
+                    classProfile.FlatSpeedGraceMultiplier = 1d;
+                }
+
+                if (classProfile.FlatTeleportGraceMultiplier < 0d)
+                {
+                    classProfile.FlatTeleportGraceMultiplier = 1d;
+                }
+
+                if (classProfile.AbsoluteTeleportDistanceMultiplier <= 0d)
+                {
+                    classProfile.AbsoluteTeleportDistanceMultiplier = 1d;
+                }
+
+                if (classProfile.MaximumAccelerationMultiplier <= 0d)
+                {
+                    classProfile.MaximumAccelerationMultiplier = 1d;
+                }
+
+                if (classProfile.SpeedViolationScoreMultiplier <= 0d)
+                {
+                    classProfile.SpeedViolationScoreMultiplier = 1d;
+                }
+
+                if (classProfile.SustainedSpeedViolationScoreMultiplier <= 0d)
+                {
+                    classProfile.SustainedSpeedViolationScoreMultiplier = 1d;
+                }
+
+                if (classProfile.TeleportViolationScoreMultiplier <= 0d)
+                {
+                    classProfile.TeleportViolationScoreMultiplier = 1d;
+                }
+
+                if (classProfile.AccelerationViolationScoreMultiplier <= 0d)
+                {
+                    classProfile.AccelerationViolationScoreMultiplier = 1d;
+                }
+            }
+
+            foreach (var vehicleOverride in Vehicle.VehicleOverrides.Where(x => x != null))
+            {
+                vehicleOverride.VehicleGuid ??= string.Empty;
+                vehicleOverride.VehicleName ??= string.Empty;
+
+                if (vehicleOverride.MinimumReferenceSpeedMetersPerSecond.HasValue &&
+                    vehicleOverride.MinimumReferenceSpeedMetersPerSecond.Value <= 0d)
+                {
+                    vehicleOverride.MinimumReferenceSpeedMetersPerSecond = null;
+                }
+
+                if (vehicleOverride.InstantaneousSpeedMultiplier.HasValue &&
+                    vehicleOverride.InstantaneousSpeedMultiplier.Value <= 0d)
+                {
+                    vehicleOverride.InstantaneousSpeedMultiplier = null;
+                }
+
+                if (vehicleOverride.SustainedSpeedMultiplier.HasValue &&
+                    vehicleOverride.SustainedSpeedMultiplier.Value <= 0d)
+                {
+                    vehicleOverride.SustainedSpeedMultiplier = null;
+                }
+
+                if (vehicleOverride.TeleportDistanceMultiplier.HasValue &&
+                    vehicleOverride.TeleportDistanceMultiplier.Value <= 0d)
+                {
+                    vehicleOverride.TeleportDistanceMultiplier = null;
+                }
+
+                if (vehicleOverride.FlatSpeedGraceMetersPerSecond.HasValue &&
+                    vehicleOverride.FlatSpeedGraceMetersPerSecond.Value < 0d)
+                {
+                    vehicleOverride.FlatSpeedGraceMetersPerSecond = null;
+                }
+
+                if (vehicleOverride.FlatTeleportGraceMeters.HasValue &&
+                    vehicleOverride.FlatTeleportGraceMeters.Value < 0d)
+                {
+                    vehicleOverride.FlatTeleportGraceMeters = null;
+                }
+
+                if (vehicleOverride.AbsoluteTeleportDistanceMeters.HasValue &&
+                    vehicleOverride.AbsoluteTeleportDistanceMeters.Value <= 0d)
+                {
+                    vehicleOverride.AbsoluteTeleportDistanceMeters = null;
+                }
+
+                if (vehicleOverride.MaximumAccelerationMetersPerSecondSquared.HasValue &&
+                    vehicleOverride.MaximumAccelerationMetersPerSecondSquared.Value <= 0d)
+                {
+                    vehicleOverride.MaximumAccelerationMetersPerSecondSquared = null;
+                }
+
+                if (vehicleOverride.SpeedViolationScore.HasValue &&
+                    vehicleOverride.SpeedViolationScore.Value <= 0d)
+                {
+                    vehicleOverride.SpeedViolationScore = null;
+                }
+
+                if (vehicleOverride.SustainedSpeedViolationScore.HasValue &&
+                    vehicleOverride.SustainedSpeedViolationScore.Value <= 0d)
+                {
+                    vehicleOverride.SustainedSpeedViolationScore = null;
+                }
+
+                if (vehicleOverride.TeleportViolationScore.HasValue &&
+                    vehicleOverride.TeleportViolationScore.Value <= 0d)
+                {
+                    vehicleOverride.TeleportViolationScore = null;
+                }
+
+                if (vehicleOverride.AccelerationViolationScore.HasValue &&
+                    vehicleOverride.AccelerationViolationScore.Value <= 0d)
+                {
+                    vehicleOverride.AccelerationViolationScore = null;
+                }
             }
 
             if (Combat.DamageWindowSeconds <= 0d)
@@ -384,6 +593,7 @@ namespace Emqo.Unturned_AntiCheat
                 new CombatDistanceProfileSettings { Name = "long", MinimumDistanceMeters = 60d, MaximumDistanceMeters = 100000d, DamageThresholdMultiplier = 0.85d, HeadshotRatioThresholdMultiplier = 0.9d }
             };
         }
+
     }
 
     public class GeneralSettings
@@ -407,21 +617,6 @@ namespace Emqo.Unturned_AntiCheat
         public int? BanCooldownMinutes { get; set; }
         public bool AutoKick { get; set; }
         public bool AutoBan { get; set; }
-    }
-
-    public class MovementDetectionSettings
-    {
-        public bool Enabled { get; set; }
-        public int MinimumSampleMilliseconds { get; set; }
-        public double MaxHorizontalSpeedMetersPerSecond { get; set; }
-        public double SustainedHorizontalSpeedMetersPerSecond { get; set; }
-        public double MaxVerticalDeltaMeters { get; set; }
-        public double MaxTeleportDistanceMeters { get; set; }
-        public double SustainedWindowSeconds { get; set; }
-        public double CooldownSeconds { get; set; }
-        public double SpeedViolationScore { get; set; }
-        public double VerticalViolationScore { get; set; }
-        public double TeleportViolationScore { get; set; }
     }
 
     public class CombatDetectionSettings

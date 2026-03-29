@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="VehicleDetectorTests.cs" />
+    <Compile Include="..\\Models\\PlayerSession.cs" Link="Source\\Models\\PlayerSession.cs" />
+    <Compile Include="..\\Models\\Position3.cs" Link="Source\\Models\\Position3.cs" />
+    <Compile Include="..\\Models\\ViolationEvent.cs" Link="Source\\Models\\ViolationEvent.cs" />
+    <Compile Include="..\\Models\\MovementDetectionSettings.cs" Link="Source\\Models\\MovementDetectionSettings.cs" />
+    <Compile Include="..\\Models\\VehicleDetectionSettings.cs" Link="Source\\Models\\VehicleDetectionSettings.cs" />
+    <Compile Include="..\\Services\\MovementDetector.cs" Link="Source\\Services\\MovementDetector.cs" />
+    <Compile Include="..\\Services\\VehicleDetector.cs" Link="Source\\Services\\VehicleDetector.cs" />
+  </ItemGroup>
+
+</Project>

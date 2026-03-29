@@ -7,6 +7,8 @@ English version: [README.md](README.md)
 ## 功能概览
 
 - 跟踪玩家移动行为，并为异常速度、异常垂直位移、疑似传送生成证据。
+- 跟踪载具驾驶位的移动行为，并为不合理加速度、爆发超速、持续超速、疑似载具瞬移生成证据。
+- 按 vehicle class 分层载具阈值，让 ground、boat、helicopter、plane、bicycle、tracked/tank 走不同判定模型。
 - 跟踪枪械伤害遥测，识别爆发伤害窗口、可疑爆头命中率与异常击杀节奏。
 - 只有在伤害最终被允许生效后才记录战斗遥测，避免 safezone、友伤关闭、godmode 等场景产生误报。
 - 按推断出的武器类型和交战距离分层调整战斗阈值，让 shotgun、auto、sniper 的判定更贴近实际。
@@ -14,6 +16,7 @@ English version: [README.md](README.md)
 - 跟踪聊天刷屏，作为轻量 abuse 信号。
 - 将评分与证据持久化到 `Rocket/Plugins/Unturned_AntiCheat/anticheat-data.json`。
 - 提供 `/ac` 管理命令，用于查看状态、证据、重置分数、手动处罚与运行时重载配置。
+- 自带 `Tests/` 自动化测试，可在不拉起 Unturned 运行时的情况下验证 movement / vehicle detector 行为。
 
 ## 命令
 
@@ -42,6 +45,8 @@ English version: [README.md](README.md)
 - 战斗证据里会写入 `weapon_guid` 与 `damage_allowed_source=post_event`，可以据此确认命中是在最终放行后才被计入，并直接回填到 `Combat.WeaponOverrides`。
 - 玩家断线时会清掉会话状态，重连后不会继承旧的移动、聊天或战斗窗口。
 - 插件启动与 `/ac reload` 时都会把处罚 cooldown 规范化写回 XML，让旧配置自动落成新的三字段形式。
+- 载具反作弊只记驾驶位，并按每辆车资产自带的目标速度推导阈值，所以不会把乘客和正常快车混为一谈。
+- 载具分类现在细分为 `Helicopter`、`Plane`、`Boat`、`Tracked`、`Bicycle`、`Ground`；旧配置里的 `Air` 仍会作为兼容回退层继续生效。
 
 处罚 cooldown 配置示例：
 
@@ -54,6 +59,50 @@ English version: [README.md](README.md)
 ```
 
 三项中的任意一项设为 `0`，即可关闭该处罚类型自身的 cooldown。
+
+## Vehicle 调参
+
+载具反作弊配置在 XML 的 `Vehicle` 节点下。检测器会先读取该载具资产的 `TargetForwardSpeed` / `TargetReverseSpeed`，再叠加你配置的倍率与容差。
+和 Combat 一样，载具现在也支持按具体车辆 GUID 做精确覆写。
+另外还能通过 `Vehicle.VehicleClassProfiles` 分别给 helicopter、plane、boat、tracked/tank、bicycle 与普通地面载具配置不同的阈值模型。
+
+```xml
+<Vehicle>
+  <Enabled>true</Enabled>
+  <MinimumReferenceSpeedMetersPerSecond>14</MinimumReferenceSpeedMetersPerSecond>
+  <InstantaneousSpeedMultiplier>1.45</InstantaneousSpeedMultiplier>
+  <SustainedSpeedMultiplier>1.20</SustainedSpeedMultiplier>
+  <TeleportDistanceMultiplier>2.25</TeleportDistanceMultiplier>
+  <FlatSpeedGraceMetersPerSecond>6</FlatSpeedGraceMetersPerSecond>
+  <FlatTeleportGraceMeters>18</FlatTeleportGraceMeters>
+  <AbsoluteTeleportDistanceMeters>140</AbsoluteTeleportDistanceMeters>
+  <MaximumAccelerationMetersPerSecondSquared>35</MaximumAccelerationMetersPerSecondSquared>
+</Vehicle>
+```
+
+若高延迟玩家或带 boost 的模组载具出现误报，优先上调 `FlatSpeedGraceMetersPerSecond` 与 `MaximumAccelerationMetersPerSecondSquared`。
+
+按具体车辆 GUID 覆写示例：
+
+```xml
+<VehicleOverrides>
+  <VehicleOverrideSettings>
+    <VehicleGuid>01234567-89ab-cdef-0123-456789abcdef</VehicleGuid>
+    <VehicleName>Workshop Nitro Car</VehicleName>
+    <MinimumReferenceSpeedMetersPerSecond>22</MinimumReferenceSpeedMetersPerSecond>
+    <InstantaneousSpeedMultiplier>1.70</InstantaneousSpeedMultiplier>
+    <SustainedSpeedMultiplier>1.35</SustainedSpeedMultiplier>
+    <TeleportDistanceMultiplier>2.80</TeleportDistanceMultiplier>
+    <FlatSpeedGraceMetersPerSecond>9</FlatSpeedGraceMetersPerSecond>
+    <FlatTeleportGraceMeters>28</FlatTeleportGraceMeters>
+    <AbsoluteTeleportDistanceMeters>180</AbsoluteTeleportDistanceMeters>
+    <MaximumAccelerationMetersPerSecondSquared>52</MaximumAccelerationMetersPerSecondSquared>
+  </VehicleOverrideSettings>
+</VehicleOverrides>
+```
+
+如果某辆模组车的资产目标速度本身偏低，但实际设计上就是爆冲型，优先给它单独提高 `MinimumReferenceSpeedMetersPerSecond`、`InstantaneousSpeedMultiplier` 与 `MaximumAccelerationMetersPerSecondSquared`。
+如果你仍在使用旧版只有 `Air` 的配置，不需要立刻重做；当前版本会先拿 `Helicopter/Plane` 的专属 profile，没有时再回退到 `Air`。
 
 ## Combat 调参
 

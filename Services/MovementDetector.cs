@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Emqo.Unturned_AntiCheat.Models;
-using UnityEngine;
 
 namespace Emqo.Unturned_AntiCheat.Services
 {
@@ -23,20 +22,18 @@ namespace Emqo.Unturned_AntiCheat.Services
             _settings = settings;
         }
 
-        public IReadOnlyList<ViolationEvent> Analyze(PlayerSession session, Vector3 position, DateTime nowUtc, bool isInVehicle)
+        public IReadOnlyList<ViolationEvent> Analyze(PlayerSession session, Position3 position, DateTime nowUtc)
         {
             var violations = new List<ViolationEvent>();
-            if (!_settings.Enabled || isInVehicle)
+            if (!_settings.Enabled)
             {
-                session.LastPosition = position;
-                session.LastPositionUtc = nowUtc;
+                ResetTracking(session, position, nowUtc);
                 return violations;
             }
 
             if (!session.LastPosition.HasValue || !session.LastPositionUtc.HasValue)
             {
-                session.LastPosition = position;
-                session.LastPositionUtc = nowUtc;
+                ResetTracking(session, position, nowUtc);
                 return violations;
             }
 
@@ -47,8 +44,8 @@ namespace Emqo.Unturned_AntiCheat.Services
             }
 
             var delta = position - session.LastPosition.Value;
-            var horizontalDistance = new Vector2(delta.x, delta.z).magnitude;
-            var verticalDistance = Math.Abs(delta.y);
+            var horizontalDistance = delta.HorizontalMagnitude;
+            var verticalDistance = Math.Abs(delta.Y);
             var horizontalSpeed = horizontalDistance / Math.Max(elapsed.TotalSeconds, 0.001d);
 
             TrimSamples(session.SpeedSamples, nowUtc, TimeSpan.FromSeconds(_settings.SustainedWindowSeconds));
@@ -101,6 +98,13 @@ namespace Emqo.Unturned_AntiCheat.Services
             session.LastPosition = position;
             session.LastPositionUtc = nowUtc;
             return violations;
+        }
+
+        public void ResetTracking(PlayerSession session, Position3 position, DateTime nowUtc)
+        {
+            session.LastPosition = position;
+            session.LastPositionUtc = nowUtc;
+            session.SpeedSamples.Clear();
         }
 
         private static void TrimSamples(Queue<SamplePoint<double>> samples, DateTime nowUtc, TimeSpan window)

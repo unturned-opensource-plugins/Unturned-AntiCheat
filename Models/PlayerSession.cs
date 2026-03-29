@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Emqo.Unturned_AntiCheat.Models
 {
@@ -8,9 +7,14 @@ namespace Emqo.Unturned_AntiCheat.Models
     {
         public ulong SteamId { get; set; }
         public string PlayerName { get; set; }
-        public Vector3? LastPosition { get; set; }
+        public Position3? LastPosition { get; set; }
         public DateTime? LastPositionUtc { get; set; }
         public Queue<SamplePoint<double>> SpeedSamples { get; } = new Queue<SamplePoint<double>>();
+        public Position3? LastVehiclePosition { get; set; }
+        public DateTime? LastVehiclePositionUtc { get; set; }
+        public double? LastVehicleSpeedMetersPerSecond { get; set; }
+        public int? LastVehicleInstanceId { get; set; }
+        public Queue<SamplePoint<double>> VehicleSpeedSamples { get; } = new Queue<SamplePoint<double>>();
         public Queue<CombatSample> DamageSamples { get; } = new Queue<CombatSample>();
         public Queue<CombatSample> HeadshotDamageSamples { get; } = new Queue<CombatSample>();
         public Queue<DateTime> KillSamples { get; } = new Queue<DateTime>();
